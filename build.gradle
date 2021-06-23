@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+    id 'application'
+    id "io.spring.dependency-management" version "1.0.7.RELEASE"
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-webflux
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-webflux', version: '2.5.1'
+    implementation group: 'org.projectlombok', name: 'lombok', version: '1.18.18'
+    // https://mvnrepository.com/artifact/io.projectreactor/reactor-test
+    testImplementation group: 'io.projectreactor', name: 'reactor-test', version: '3.1.0.M3'
+
+    implementation platform('software.amazon.awssdk:bom:2.15.0')
+    implementation 'software.amazon.awssdk:cloudtrail'
+
+    implementation group: 'org.postgresql', name: 'postgresql', version: '9.3-1100-jdbc4'
+    implementation 'org.jsoup:jsoup:1.13.1'
+    implementation group: 'javax.mail', name: 'mail', version: '1.4.1'
+    implementation group: "com.twilio.sdk", name: "twilio", version: "8.8.0"
+    implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.8'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+run {
+    standardInput = System.in
+}
+
+test {
+    useJUnitPlatform()
+}
+
+mainClassName = 'main'
