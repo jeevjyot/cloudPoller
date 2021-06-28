@@ -2,16 +2,17 @@ package cloudTrail.client;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
+import software.amazon.awssdk.services.cloudtrail.CloudTrailAsyncClient;
 import software.amazon.awssdk.services.cloudtrail.model.LookupEventsRequest;
 import software.amazon.awssdk.services.cloudtrail.model.LookupEventsResponse;
 
 @Slf4j
 public class CTAsyncClient implements LookupEvents {
 
-    private final software.amazon.awssdk.services.cloudtrail.CloudTrailAsyncClient cloudTrailAsyncClient;
+    private final CloudTrailAsyncClient cloudTrailAsyncClient;
 
-    public CTAsyncClient() {
-        this.cloudTrailAsyncClient = software.amazon.awssdk.services.cloudtrail.CloudTrailAsyncClient.create();
+    public CTAsyncClient(CloudTrailAsyncClient cloudTrailAsyncClient) {
+        this.cloudTrailAsyncClient = cloudTrailAsyncClient;
     }
 
     public Mono<LookupEventsResponse> lookupEvents(String next, int limit) {

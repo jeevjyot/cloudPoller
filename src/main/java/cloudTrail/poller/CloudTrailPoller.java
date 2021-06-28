@@ -31,7 +31,7 @@ public class CloudTrailPoller {
     private final Object lock = new Object();
     private final CTAsyncClient ctAsyncClient;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    String next;
+    private static String next = "NO_NEXT";
 
     public CloudTrailPoller(
             OnMessageReceived onMessageReceived,
@@ -89,8 +89,12 @@ public class CloudTrailPoller {
 
                 concurrentCalls.incrementAndGet();
 
-                Mono.just(fetchNext())
-                        .flatMap(s -> ctAsyncClient.lookupEvents(s, 10))
+                Mono.just(toBeRequested.get())
+                        .flatMap(s -> {
+                            String nextToken = fetchNext() == "NO_NEXT" ? null : fetchNext();
+                          //  log.info("Next Token = " + nextToken + " Next Requesting " + s);
+                            return ctAsyncClient.lookupEvents(nextToken, s);
+                        })
                         .onErrorResume(throwable -> {
                             log.error("Error propagated from the cloud trail async client", throwable);
                             return Mono.just(LookupEventsResponse.builder().build());
@@ -101,9 +105,12 @@ public class CloudTrailPoller {
                             persistNext(lookupEventsResponse.nextToken());
                             int offset = toBeRequested.get() - lookupEventsResponse.events().size();
                             requested.getAndAdd(offset);
+                            concurrentCalls.decrementAndGet();
+                            unlock();
                             if (lookupEventsResponse.hasEvents()) {
-                                lookupEventsResponse.events()
-                                        .forEach(this::internalOnMessageReceive);
+                                for (Event event : lookupEventsResponse.events()) {
+                                    internalOnMessageReceive(event);
+                                }
                             }
                         });
             } catch (Throwable ex) {
@@ -119,7 +126,7 @@ public class CloudTrailPoller {
 
     // TODO: Move to a different class and define as a critical section
     private void persistNext(String next) {
-        next = next;
+        CloudTrailPoller.next = next;
     }
 
     /**

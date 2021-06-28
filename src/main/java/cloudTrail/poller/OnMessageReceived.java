@@ -2,7 +2,6 @@ package cloudTrail.poller;
 
 
 import software.amazon.awssdk.services.cloudtrail.model.Event;
-import software.amazon.awssdk.services.cloudtrail.model.LookupEventsResponse;
 
 /**
  * Function that will receive an event from {@link CloudTrailPoller}.
