@@ -15,7 +15,7 @@ Starts the pipeline -> polls the event -> Process the event -> emit the event (t
 ```
 2. Build using 
 ```shell
-   git clone {repo}
+   git clone https://github.com/jeevjyot/cloudPoller.git
    cd repo //to the root director
    ./gradlew clean build -x test
 ```
