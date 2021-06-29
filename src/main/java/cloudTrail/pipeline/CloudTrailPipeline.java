@@ -1,6 +1,6 @@
 package cloudTrail.pipeline;
 
-import cloudTrail.client.CTAsyncClient;
+import cloudTrail.client.LookupEvents;
 import cloudTrail.pipeline.exceptions.EventHandlerRetryableException;
 import cloudTrail.poller.CloudTrailPoller;
 import cloudTrail.service.publishers.handlers.EventHandler;
@@ -11,14 +11,22 @@ import software.amazon.awssdk.services.cloudtrail.model.Event;
 
 import java.util.function.Supplier;
 
+/***
+ * Main reactive pipeline for CloudTrailer events
+ *
+ * This listener builds the following pipeline
+ * Event Received - calls handler - emit emiited
+ *
+ * Pipeline polls the events from {@link CloudTrailPoller}
+ */
 @Slf4j
 public class CloudTrailPipeline implements Supplier<Flux<Event>> {
 
-    private final CTAsyncClient ctAsyncClient;
+    private final LookupEvents lookupEvents;
     private final EventHandler cloudTrailEventHandler;
 
-    public CloudTrailPipeline(CTAsyncClient ctAsyncClient, EventHandler eventHandler) {
-        this.ctAsyncClient = ctAsyncClient;
+    public CloudTrailPipeline(LookupEvents ctAsyncClient, EventHandler eventHandler) {
+        this.lookupEvents = ctAsyncClient;
         this.cloudTrailEventHandler = eventHandler;
     }
 
@@ -27,13 +35,13 @@ public class CloudTrailPipeline implements Supplier<Flux<Event>> {
         return Flux.<Event>create(eventFluxSink -> {
             CloudTrailPoller cloudTrailPoller = new CloudTrailPoller(
                     eventFluxSink::next,
-                    ctAsyncClient
+                    lookupEvents
             );
-            eventFluxSink.onRequest(numOfMessages -> cloudTrailPoller.request(numOfMessages));
+            eventFluxSink.onRequest(cloudTrailPoller::request);
             eventFluxSink.onCancel(cloudTrailPoller::terminate);
             cloudTrailPoller.runAsync();
         })
-                .flatMap(event -> safelyCallHandler(event))
+                .flatMap(this::safelyCallHandler)
                 .onErrorResume(error -> {
                     log.error("An unexpected error was captured in the pipeline.", error);
                     return Mono.just(Event.builder().build());
@@ -42,9 +50,7 @@ public class CloudTrailPipeline implements Supplier<Flux<Event>> {
 
     private Mono<Event> safelyCallHandler(Event event) {
         return cloudTrailEventHandler.handle(event)
-                .onErrorResume(EventHandlerRetryableException.class, throwable -> {
-                    return Mono.just(event);
-                })
+                .onErrorResume(EventHandlerRetryableException.class, throwable -> Mono.just(event))
                 .doOnError(throwable -> log.error("Something went wrong", throwable));
     }
 }

@@ -1,7 +1,8 @@
 package cloudTrail.poller;
 
-import cloudTrail.client.CTAsyncClient;
+import cloudTrail.client.LookupEvents;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -14,9 +15,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import static java.lang.Math.toIntExact;
 
+/**
+ * Create a polling operation to receive messages from CloudTrailer.
+ *
+ * This can be used for SQS events as also (have written this keeping SQS keeping in mind, which would poll events from SQS
+ * (cloud trail queue)
+ * <p>This class will create a long running thread to collect messages from CloudTrail.
+ * The number of messages processed by this thread is limited to number of messages requested.
+ */
 @Slf4j
 public class CloudTrailPoller {
     private static final int MAX_MESSAGE_PER_REQUEST = 50;
@@ -24,20 +34,40 @@ public class CloudTrailPoller {
     private final Integer maxConcurrentReceiveOperations;
     private final long maxSleepTimeMs;
 
+    /**
+     * Special counter for the number of the requested messages.
+     * There is a need in this counter because we can have concurrent requests to AWS
+     * so that {@link FluxSink#requestedFromDownstream()} won't returned actual number of requested messages
+     * until the downstream sees those messages.
+     * Limited automatically by subscribers (reacting on their demand).
+     * Can be throttled by flatMap's concurrency limit {@link reactor.core.publisher.Flux#flatMap(Function,int)}.
+     */
+    
     private final AtomicLong requested = new AtomicLong();
     private final AtomicBoolean continueProcessing = new AtomicBoolean();
     private final Scheduler pollingScheduler = Schedulers.newSingle("polling-handler");
+
+    /**
+     * Limits the number of concurrent calls to AWS,
+     * which are needed for fast processing pipelines,
+     * where the producer itself might become a bottle-neck.
+     *
+     * ----- PLEASE NOTE -----
+     * We are hardcoding to 1 for cloudTrailer, it could get complicate because of the NEXT, we would need to persist the
+     * NEXT token (for pagination) value in DB or define as a critical section. Also there are chances of hitting rate-limiting
+     * and getting throttled
+     */
     private final AtomicInteger concurrentCalls = new AtomicInteger();
     private final Object lock = new Object();
-    private final CTAsyncClient ctAsyncClient;
+    private final LookupEvents ctAsyncClient;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static String next = "NO_NEXT";
 
     public CloudTrailPoller(
             OnMessageReceived onMessageReceived,
-            CTAsyncClient ctAsyncClient
+            LookupEvents lookupEvents
     ) {
-        this.ctAsyncClient = ctAsyncClient;
+        this.ctAsyncClient = lookupEvents;
         this.onMessageReceived = onMessageReceived;
         this.maxConcurrentReceiveOperations = 1;
         this.maxSleepTimeMs = 3000;
@@ -92,7 +122,6 @@ public class CloudTrailPoller {
                 Mono.just(toBeRequested.get())
                         .flatMap(s -> {
                             String nextToken = fetchNext() == "NO_NEXT" ? null : fetchNext();
-                          //  log.info("Next Token = " + nextToken + " Next Requesting " + s);
                             return ctAsyncClient.lookupEvents(nextToken, s);
                         })
                         .onErrorResume(throwable -> {

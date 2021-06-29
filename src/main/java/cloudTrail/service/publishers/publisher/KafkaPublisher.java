@@ -1,4 +1,4 @@
-package cloudTrail.service.publishers;
+package cloudTrail.service.publishers.publisher;
 
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.cloudtrail.model.Event;

@@ -1,7 +1,6 @@
 package cloudTrail.service.publishers.handlers;
 
-import cloudTrail.service.publishers.EventPublisherSpecification;
-import cloudTrail.service.publishers.StandardOutputPublisher;
+import cloudTrail.service.publishers.publisher.StandardOutputPublisher;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.cloudtrail.model.Event;
@@ -16,6 +15,6 @@ public class CloudTrailEventHandler implements EventHandler {
     }
 
     public Mono<Event> handle(Event event) {
-        return standardOutputPublisher.publishEventBase(event);
+        return standardOutputPublisher.processAndPublishEvent(event);
     }
 }

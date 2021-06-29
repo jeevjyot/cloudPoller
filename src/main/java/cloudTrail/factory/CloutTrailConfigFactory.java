@@ -1,14 +1,13 @@
-package cloudTrail;
+package cloudTrail.factory;
 
 import cloudTrail.client.CTAsyncClient;
 import cloudTrail.pipeline.CloudTrailPipeline;
-import cloudTrail.service.publishers.StandardOutputPublisher;
 import cloudTrail.service.publishers.handlers.CloudTrailEventHandler;
 import cloudTrail.service.publishers.handlers.EventHandler;
+import cloudTrail.service.publishers.publisher.StandardOutputPublisher;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudtrail.CloudTrailAsyncClient;
-import software.amazon.awssdk.services.cloudtrail.model.Event;
 
 public class CloutTrailConfigFactory {
 
